@@ -89,7 +89,7 @@ const makeLandBank = (): AcquisitionPathway => ({
 });
 
 export function generateAcquisitionPathway(listing: Listing): AcquisitionPathway {
-  const label = listing.originalLabel.toLowerCase();
+  const label = (listing.originalLabel ?? '').toLowerCase();
   if (label.includes('lra') || label.includes('land bank') || label.includes('reutilization')) return makeLRA();
   if (label.includes('sheriff')) return makeSheriffSale();
   if (label.includes('tax sale') || label.includes('delinquent') || label.includes('tax foreclosure')) return makeTaxSale();

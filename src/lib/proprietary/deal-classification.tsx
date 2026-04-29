@@ -33,7 +33,7 @@ function detectDealType(listing: Listing, score: ReturnType<typeof computeOpport
   const hasAuction = !!listing.auctionDate;
   const zip = listing.zipCode ?? '';
   const rawText = JSON.stringify(listing.rawData ?? {}).toLowerCase();
-  const label = listing.originalLabel.toLowerCase();
+  const label = (listing.originalLabel ?? "").toLowerCase();
 
   const highValueZips = ['63101', '63102', '63103', '63104', '63108', '63110', '63112', '63118'];
   const largeParcelSignals = ['lot', 'parcel', 'acre', 'land', 'structure', 'sqft'];
@@ -51,7 +51,7 @@ function detectDealType(listing: Listing, score: ReturnType<typeof computeOpport
 function detectUrgencyFlags(listing: Listing, hasAuction: boolean, score: ReturnType<typeof computeOpportunityScore>, price: number): UrgencyFlag[] {
   const flags: UrgencyFlag[] = [];
   if (hasAuction && listing.auctionDate) {
-    const daysToAuction = Math.ceil((new Date(listing.auctionDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    const daysToAuction = Math.ceil((listing.auctionDate ? new Date(listing.auctionDate).getTime() : Date.now() - Date.now()) / (1000 * 60 * 60 * 24));
     if (daysToAuction <= 7) flags.push({ type: 'auction', severity: 'high', message: `Auction in ${daysToAuction} day${daysToAuction === 1 ? '' : 's'} — must act immediately` });
     else if (daysToAuction <= 30) flags.push({ type: 'auction', severity: 'medium', message: `Auction ${listing.auctionDate} — ${daysToAuction} days to research` });
   }

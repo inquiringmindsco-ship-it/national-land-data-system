@@ -403,7 +403,7 @@ function buildWatchOuts(criteria: LandCriteria, listing: Listing): string[] {
   }
 
   if (listing.auctionDate) {
-    const daysUntil = Math.ceil((new Date(listing.auctionDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    const daysUntil = Math.ceil((listing.auctionDate ? new Date(listing.auctionDate).getTime() : Date.now() - Date.now()) / (1000 * 60 * 60 * 24));
     if (daysUntil <= 7) {
       warnings.push(`⏰ Auction in ${daysUntil} days — act fast`);
     }

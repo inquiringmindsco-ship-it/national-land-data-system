@@ -194,7 +194,7 @@ function calcRisk(listing: Listing): Subscore {
   const zip = listing.zipCode ?? '';
   const hood = getNeighborhood(zip);
   const rawText = JSON.stringify(listing.rawData ?? {}).toLowerCase();
-  const label = listing.originalLabel.toLowerCase();
+  const label = (listing.originalLabel ?? "").toLowerCase();
   let score = 65;
   const riskFactors: string[] = [];
 
@@ -242,7 +242,7 @@ function calcDemand(listing: Listing): Subscore {
 }
 
 function calcEase(listing: Listing): Subscore {
-  const label = listing.originalLabel.toLowerCase();
+  const label = (listing.originalLabel ?? "").toLowerCase();
   const hasAuction = !!listing.auctionDate;
   const rawText = JSON.stringify(listing.rawData ?? {}).toLowerCase();
   let score = 65; let explanation = '';
@@ -301,7 +301,7 @@ function calcScarcity(listing: Listing, allListings: Listing[]): number {
 }
 
 function calcEntryBarrier(listing: Listing): number {
-  const label = listing.originalLabel.toLowerCase();
+  const label = (listing.originalLabel ?? "").toLowerCase();
   const hasAuction = !!listing.auctionDate;
   const rawText = JSON.stringify(listing.rawData ?? {}).toLowerCase();
   let score = 50; // baseline
@@ -324,7 +324,7 @@ function calcEntryBarrier(listing: Listing): number {
 function calcTimeSensitivity(listing: Listing): number {
   if (!listing.auctionDate) {
     // No auction = no immediate time pressure
-    const scraped = new Date(listing.scrapedAt).getTime();
+    const scraped = new Date(listing.scrapedAt ?? new Date().toISOString()).getTime();
     const daysSinceScraped = (Date.now() - scraped) / (1000 * 60 * 60 * 24);
     // Older listings (60+ days) = moderate urgency to act before others find them
     if (daysSinceScraped > 60) return 75;
@@ -332,7 +332,7 @@ function calcTimeSensitivity(listing: Listing): number {
     return 30; // freshly listed = no rush
   }
 
-  const auction = new Date(listing.auctionDate).getTime();
+  const auction = listing.auctionDate ? new Date(listing.auctionDate).getTime() : Date.now();
   const daysTo = Math.ceil((auction - Date.now()) / (1000 * 60 * 60 * 24));
 
   if (daysTo <= 3) return 95;   // imminent
@@ -344,9 +344,9 @@ function calcTimeSensitivity(listing: Listing): number {
 }
 
 function calcEarlyDiscovery(listing: Listing): number {
-  const scraped = new Date(listing.scrapedAt).getTime();
+  const scraped = new Date(listing.scrapedAt ?? new Date().toISOString()).getTime();
   const daysOld = (Date.now() - scraped) / (1000 * 60 * 60 * 24);
-  const auction = listing.auctionDate ? new Date(listing.auctionDate).getTime() : null;
+  const auction = listing.auctionDate ? listing.auctionDate ? new Date(listing.auctionDate).getTime() : Date.now() : null;
   const daysToAuction = auction ? Math.ceil((auction - Date.now()) / (1000 * 60 * 60 * 24)) : 999;
 
   // Low views/clicks in MLS = not widely known (proxy: days old + days to auction)
@@ -387,7 +387,7 @@ function generateInsight(
   const price = listing.price ?? listing.startingBid ?? 0;
   const hood = getNeighborhood(zip);
   const fmt = (c: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(c / 100);
-  const label = listing.originalLabel.toLowerCase();
+  const label = (listing.originalLabel ?? "").toLowerCase();
 
   // Headline
   let headline = '';

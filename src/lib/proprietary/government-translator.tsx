@@ -84,12 +84,12 @@ const TYPE_TRANSLATIONS: Record<PropertyType, { meaning: string; valuable: strin
 };
 
 export function translateListing(listing: Listing): Translation {
-  const label = listing.originalLabel.toLowerCase();
+  const label = (listing.originalLabel ?? "").toLowerCase();
   for (const [term, translation] of Object.entries(TERM_TRANSLATIONS)) {
     if (label.includes(term)) {
-      return { whatItMeans: translation.meaning, whyValuable: translation.valuable, watchOut: translation.watchOut, officialLabel: listing.originalLabel };
+      return { whatItMeans: translation.meaning, whyValuable: translation.valuable, watchOut: translation.watchOut, officialLabel: (listing.originalLabel ?? "") };
     }
   }
-  const typeTrans = TYPE_TRANSLATIONS[listing.propertyType];
-  return { whatItMeans: typeTrans.meaning, whyValuable: typeTrans.valuable, watchOut: typeTrans.watchOut, officialLabel: listing.originalLabel };
+  const typeTrans = TYPE_TRANSLATIONS[listing.propertyType as PropertyType] ?? TYPE_TRANSLATIONS['TAX_DEED_EQUIVALENT'];
+  return { whatItMeans: typeTrans.meaning, whyValuable: typeTrans.valuable, watchOut: typeTrans.watchOut, officialLabel: (listing.originalLabel ?? "") };
 }
