@@ -10,7 +10,8 @@ import { Listing } from './types';
 // ──────────────────────────────────────────────────────────────
 
 export interface LandCriteria {
-  state: string;
+  state: string; // 'ALL' for multi-state scan
+  targetStates?: string[]; // e.g. ['TX','MO','LA','TN','AR','FL']
   counties?: string[];
   minAcres?: number;
   maxAcres?: number;
@@ -54,21 +55,10 @@ export interface LandMatch {
 // VETERAN PROGRAM DATABASE (Mississippi-specific)
 // ──────────────────────────────────────────────────────────────
 
-const VETERAN_PROGRAMS: Record<string, string[]> = {
-  'MS': [
-    'USDA FSA Direct Farm Ownership Loan — 0% down for veterans',
-    'Mississippi Beginning Farmer Tax-Exempt Bond Program',
-    'Military Veterans Agriculture Liaison — (601) 965-5205',
-  ],
-  'MO': [
-    'USDA FSA Direct Farm Ownership Loan — 0% down for veterans',
-    'Missouri Beginning Farmer Tax-Exempt Bond Program',
-  ],
-  'default': [
-    'USDA FSA Direct Farm Ownership Loan — 0% down for veterans',
-    'Contact your state FSA office for veteran-specific programs',
-  ],
-};
+// VETERAN PROGRAM DATABASE (All States)
+import { STATE_VETERAN_PROGRAMS } from '@/data/states';
+
+const VETERAN_PROGRAMS = STATE_VETERAN_PROGRAMS;
 
 // ──────────────────────────────────────────────────────────────
 // SCORING ENGINE
@@ -77,7 +67,12 @@ const VETERAN_PROGRAMS: Record<string, string[]> = {
 export function matchLand(criteria: LandCriteria, listings: Listing[]): LandMatch[] {
   const matches: LandMatch[] = [];
 
-  for (const listing of listings) {
+  // Filter by target states if ALL mode
+  const listingsToSearch = (criteria.state === 'ALL' && criteria.targetStates && criteria.targetStates.length > 0)
+    ? listings.filter(l => criteria.targetStates!.includes(l.state?.toUpperCase() ?? ''))
+    : listings;
+
+  for (const listing of listingsToSearch) {
     const match = scoreListing(criteria, listing);
     if (match.matchScore >= 40) { // Minimum threshold
       matches.push(match);
@@ -199,8 +194,12 @@ function scoreSize(criteria: LandCriteria, listing: Listing): number {
 function scoreLocation(criteria: LandCriteria, listing: Listing): number {
   let score = 70;
 
-  // State match
-  if (listing.state?.toUpperCase() === criteria.state.toUpperCase()) {
+  // State match — support ALL + targetStates
+  if (criteria.state === 'ALL' && criteria.targetStates && criteria.targetStates.length > 0) {
+    if (criteria.targetStates.includes(listing.state?.toUpperCase() ?? '')) {
+      score += 15; // Higher bonus for priority states
+    }
+  } else if (listing.state?.toUpperCase() === criteria.state.toUpperCase()) {
     score += 10;
   }
 

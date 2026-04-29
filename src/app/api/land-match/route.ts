@@ -5,12 +5,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { LandCriteria, matchLand, OD_CRITERIA } from '@/lib/land-match';
-import { STLOUIS_LISTINGS } from '@/data/stlouis-listings';
-import { MISSISSIPPI_LISTINGS } from '@/data/mississippi-listings';
+import { ALL_STATE_LISTINGS } from '@/data/states';
 
-// In production: fetch from Supabase or scraped data
-// For now: use combined dataset
-const ALL_LISTINGS = [...STLOUIS_LISTINGS, ...MISSISSIPPI_LISTINGS];
+// All listings across all states
+const ALL_LISTINGS = ALL_STATE_LISTINGS;
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,13 +20,21 @@ export async function POST(req: NextRequest) {
       ...body.criteria,
     };
 
-    // Filter by state first
-    const stateFiltered = ALL_LISTINGS.filter(
-      l => l.state?.toUpperCase() === criteria.state.toUpperCase()
-    );
-
-    // If no state matches, include all for demo
-    const listingsToSearch = stateFiltered.length > 0 ? stateFiltered : ALL_LISTINGS;
+    // Filter by state(s)
+    let listingsToSearch = ALL_LISTINGS;
+    
+    if (criteria.state !== 'ALL') {
+      // Single state mode
+      const stateFiltered = ALL_LISTINGS.filter(
+        l => l.state?.toUpperCase() === criteria.state.toUpperCase()
+      );
+      listingsToSearch = stateFiltered.length > 0 ? stateFiltered : ALL_LISTINGS;
+    } else if (criteria.targetStates && criteria.targetStates.length > 0) {
+      // Multi-state mode
+      listingsToSearch = ALL_LISTINGS.filter(
+        l => criteria.targetStates!.includes(l.state?.toUpperCase() ?? '')
+      );
+    }
 
     // Run match engine
     const matches = matchLand(criteria, listingsToSearch);

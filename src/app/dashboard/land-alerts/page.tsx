@@ -5,10 +5,15 @@ import { OD_CRITERIA } from '@/lib/land-match';
 import type { LandCriteria, LandMatch } from '@/lib/land-match';
 
 export default function LandAlertsPage() {
-  const [criteria, setCriteria] = useState<LandCriteria>(OD_CRITERIA);
+  const [criteria, setCriteria] = useState<LandCriteria>({
+    ...OD_CRITERIA,
+    state: 'ALL',
+    targetStates: ['TX', 'MO', 'LA', 'TN', 'AR', 'FL'],
+  });
   const [matches, setMatches] = useState<LandMatch[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [multiState, setMultiState] = useState(true);
 
   async function runMatch() {
     setLoading(true);
@@ -44,6 +49,36 @@ export default function LandAlertsPage() {
         {/* Criteria Panel */}
         <div className="bg-gray-900 rounded-xl p-6 mb-8 border border-gray-800">
           <h2 className="text-xl font-semibold mb-4">Your Criteria</h2>
+          {/* Multi-State Toggle */}
+          <div className="mb-4 flex items-center gap-4">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={multiState}
+                onChange={(e) => setMultiState(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <span className="text-sm">Search All 6 Priority States</span>
+            </label>
+          </div>
+
+          {/* Target States Display */}
+          {multiState && criteria.targetStates && (
+            <div className="mb-4">
+              <div className="text-sm text-gray-400 mb-2">Target States:</div>
+              <div className="flex flex-wrap gap-2">
+                {criteria.targetStates.map((state) => (
+                  <span
+                    key={state}
+                    className="bg-emerald-900/40 text-emerald-300 text-sm px-3 py-1 rounded-full"
+                  >
+                    {state}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm text-gray-400 mb-1">State</label>
