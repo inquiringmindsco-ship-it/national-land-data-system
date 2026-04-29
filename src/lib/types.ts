@@ -10,25 +10,46 @@ export interface Listing {
   city: string;
   state: string;
   zipCode?: string;
-  propertyType: PropertyType;
-  originalLabel: string;       // e.g. "Adjudicated Property"
-  normalizedSummary: string;    // e.g. "Vacant property available due to unpaid taxes"
+  county?: string;
+  propertyType: PropertyType | string;
+  originalLabel?: string;       // e.g. "Adjudicated Property"
+  normalizedSummary?: string;    // e.g. "Vacant property available due to unpaid taxes"
   price: number | null;        // in cents
   startingBid: number | null;  // in cents
   auctionDate: string | null;  // ISO date
-  sourceLink: string;
-  sourceName: string;
-  scrapedAt: string;
-  // STL-specific enrichment fields
+  sourceLink?: string;
+  sourceName?: string;
+  source?: string;
+  sourceUrl?: string;
+  scrapedAt?: string;
+  listedAt?: string;
+  // Land-specific fields
+  acreage?: number;
+  lotSize?: string;
+  landArea?: string;
+  // Enrichment fields
   neighborhood?: string;
   parcelId?: string;
   assessedValue?: number;      // cents — conservative land value estimate
   annualTaxes?: number;        // cents — annual property tax owed
   zoning?: string;
+  useType?: string;
   occupancyStatus?: 'vacant' | 'occupied' | 'unknown';
-  // Real LRA data fields
+  // Access & utilities
+  roadAccess?: boolean;
+  waterAccess?: boolean;
+  utilities?: boolean;
+  hasElectric?: boolean;
+  hasWater?: boolean;
+  hasSeptic?: boolean;
+  // Financing
+  ownerFinancing?: boolean;
+  financingTerms?: string;
+  // Location
   lat?: number;
+  latitude?: number;
   lon?: number;
+  longitude?: number;
   sqft?: string;
   frontage?: string;
   sideLotEligible?: boolean;
@@ -36,6 +57,9 @@ export interface Listing {
   usage?: string;
   mapEmbedUrl?: string;  // Google Maps search URL
   mapImageUrl?: string;  // Static OSM tile URL
+  // Media
+  images?: string[];
+  tags?: string[];
   rawData?: Record<string, unknown>;
 }
 

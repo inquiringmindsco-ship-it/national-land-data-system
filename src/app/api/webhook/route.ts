@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
+import { createHmac, timingSafeEqual } from 'crypto';
 
 const ACCESS_HOURS: Record<string, number> = {
   supporter: 48,
@@ -19,11 +19,41 @@ interface CheckoutSession {
   metadata: Record<string, string>;
 }
 
+interface StripeEvent {
+  id: string;
+  type: string;
+  data: { object: CheckoutSession };
+}
+
 async function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return null;
   return createClient(url, key);
+}
+
+function verifyStripeSignature(body: string, sig: string, secret: string): StripeEvent {
+  const parts = Object.fromEntries(sig.split(',').map(p => p.split('=')));
+  const timestamp = parts['t'];
+  const v1 = parts['v1'];
+
+  if (!timestamp || !v1) {
+    throw new Error('Invalid signature format');
+  }
+
+  const payload = `${timestamp}.${body}`;
+  const expected = createHmac('sha256', secret)
+    .update(payload, 'utf8')
+    .digest('hex');
+
+  const sigBuffer = Buffer.from(v1, 'hex');
+  const expectedBuffer = Buffer.from(expected, 'hex');
+
+  if (sigBuffer.length !== expectedBuffer.length || !timingSafeEqual(sigBuffer, expectedBuffer)) {
+    throw new Error('Signature mismatch');
+  }
+
+  return JSON.parse(body) as StripeEvent;
 }
 
 export async function POST(req: NextRequest) {
@@ -36,13 +66,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Webhook not configured' }, { status: 500 });
   }
 
-  let event: Stripe.Event;
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', {
-    apiVersion: '2025-01-27.acacia',
-  });
-
+  let event: StripeEvent;
   try {
-    event = stripe.webhooks.constructEvent(body, sig, secret);
+    event = verifyStripeSignature(body, sig, secret);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     console.error('[webhook] Signature verification failed:', msg);
@@ -52,8 +78,7 @@ export async function POST(req: NextRequest) {
   console.log(`[webhook] Received event: ${event.type} (id=${event.id})`);
 
   if (event.type === 'checkout.session.completed') {
-    const session = event.data.object as CheckoutSession;
-    await handlePurchase(session);
+    await handlePurchase(event.data.object);
   }
 
   return NextResponse.json({ received: true, id: event.id });
@@ -140,7 +165,6 @@ async function handlePurchase(session: CheckoutSession) {
       data: { id: string; expires_at: string; tier: string } | null
     };
 
-    // ── Update active access ────────────────────────────────────────────────
     if (unlock) {
       await supabase.from('nlds_active_access').upsert(
         {
@@ -154,14 +178,12 @@ async function handlePurchase(session: CheckoutSession) {
       );
     }
 
-    // ── Record event for analytics ──────────────────────────────────────────
     await supabase.from('nlds_events').insert({
       user_id: userId,
       event_type: 'unlock_purchase',
       event_data: { tier, city, price_cents: priceCents, session_id: sessionId },
     });
 
-    // ── Send welcome email ──────────────────────────────────────────────────
     if (email) {
       sendWelcomeEmail(email, tier, hours, city).catch(err =>
         console.error('[webhook] Welcome email failed:', err)
@@ -189,64 +211,7 @@ async function sendWelcomeEmail(email: string, tier: string, hours: number, city
   const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1);
   const cityLabel = city === 'st-louis' ? 'St. Louis, MO' : city;
 
-  const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #000; color: #fff; margin: 0; padding: 0; }
-    .container { max-width: 560px; margin: 0 auto; padding: 40px 20px; }
-    .header { text-align: center; margin-bottom: 32px; }
-    .logo { font-size: 20px; font-weight: 900; color: #10b981; letter-spacing: -0.5px; }
-    .logo span { color: #fff; }
-    h1 { font-size: 28px; font-weight: 900; margin: 0 0 12px; color: #fff; }
-    p { color: #9ca3af; line-height: 1.7; font-size: 15px; margin: 0 0 16px; }
-    .card { background: #0f0f0f; border: 1px solid #1f2937; border-radius: 12px; padding: 24px; margin: 24px 0; }
-    .card-title { font-size: 13px; font-weight: 700; color: #10b981; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
-    .feature { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 14px; color: #d1d5db; }
-    .feature-icon { color: #10b981; font-size: 16px; }
-    .cta { display: inline-block; background: #10b981; color: #000; font-weight: 700; font-size: 15px; padding: 14px 28px; border-radius: 8px; text-decoration: none; margin: 8px 0; }
-    .cta-block { text-align: center; margin: 32px 0; }
-    .footer { text-align: center; color: #4b5563; font-size: 12px; margin-top: 40px; border-top: 1px solid #1f2937; padding-top: 24px; }
-    .tier-badge { display: inline-block; background: #064e3b; color: #10b981; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 999px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <div class="logo">NLDS<span>™</span></div>
-    </div>
-
-    <h1>Access Unlocked</h1>
-    <p>You now have <strong style="color:#fff">${hours}-hour ${tierLabel} access</strong> to the National Land Data System for <strong style="color:#fff">${cityLabel}</strong>.</p>
-
-    <div class="card">
-      <div class="card-title">What&apos;s included</div>
-      <div class="feature"><span class="feature-icon">✓</span> All property listings in the deal set</div>
-      <div class="feature"><span class="feature-icon">✓</span> Full Parcel Intelligence scores on every deal</div>
-      <div class="feature"><span class="feature-icon">✓</span> Government Data Translator™ — plain-English explanations</div>
-      <div class="feature"><span class="feature-icon">✓</span> Acquisition Pathway™ — step-by-step next steps</div>
-      <div class="feature"><span class="feature-icon">✓</span> Deal Classification™ — opportunity type + urgency flags</div>
-      <div class="feature"><span class="feature-icon">✓</span> Weekly Top Deals email digest</div>
-    </div>
-
-    <div class="cta-block">
-      <a href="${baseUrl}/deals" class="cta">Browse All Deals →</a>
-    </div>
-
-    <p style="color:#6b7280; font-size:13px;">
-      Your access expires in ${hours} hours from purchase. If you need more time, come back and unlock again — no subscription, ever.
-    </p>
-
-    <div class="footer">
-      National Land Data System™ — A Porterful Labs Product<br>
-      Land intelligence for serious buyers and builders.
-    </div>
-  </div>
-</body>
-</html>
-`;
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#000;color:#fff;margin:0;padding:0;"><div style="max-width:560px;margin:0 auto;padding:40px 20px;text-align:center;"><div style="font-size:20px;font-weight:900;color:#10b981;letter-spacing:-0.5px;">NLDS<span style="color:#fff;">™</span></div><h1 style="font-size:28px;font-weight:900;margin:24px 0 12px;">Access Unlocked</h1><p style="color:#9ca3af;line-height:1.7;font-size:15px;">You now have <strong style="color:#fff">${hours}-hour ${tierLabel} access</strong> to the National Land Data System for <strong style="color:#fff">${cityLabel}</strong>.</p><div style="background:#0f0f0f;border:1px solid #1f2937;border-radius:12px;padding:24px;margin:24px 0;text-align:left;"><div style="font-size:13px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">What's included</div><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:14px;color:#d1d5db;"><span style="color:#10b981;">✓</span> All property listings in the deal set</div><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:14px;color:#d1d5db;"><span style="color:#10b981;">✓</span> Full Parcel Intelligence scores on every deal</div><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:14px;color:#d1d5db;"><span style="color:#10b981;">✓</span> Government Data Translator™ — plain-English explanations</div><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:14px;color:#d1d5db;"><span style="color:#10b981;">✓</span> Acquisition Pathway™ — step-by-step next steps</div><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:14px;color:#d1d5db;"><span style="color:#10b981;">✓</span> Deal Classification™ — opportunity type + urgency flags</div></div><a href="${baseUrl}/deals" style="display:inline-block;background:#10b981;color:#000;font-weight:700;font-size:15px;padding:14px 28px;border-radius:8px;text-decoration:none;margin:8px 0;">Browse All Deals →</a><p style="color:#6b7280;font-size:13px;margin-top:24px;">Your access expires in ${hours} hours from purchase. No subscription, ever.</p><div style="text-align:center;color:#4b5563;font-size:12px;margin-top:40px;border-top:1px solid #1f2937;padding-top:24px;">National Land Data System™ — A Porterful Labs Product</div></div></body></html>`;
 
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',

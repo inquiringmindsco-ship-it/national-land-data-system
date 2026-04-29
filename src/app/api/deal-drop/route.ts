@@ -1,17 +1,24 @@
 import { NextResponse } from 'next/server';
-import { loadDealDrop, runDealDropCycle, saveDealDrop } from '@/lib/proprietary/deal-drop';
+import { runDealDropCycle, saveDealDrop } from '@/lib/proprietary/deal-drop';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    let drop = await loadDealDrop();
-    if (!drop) {
-      drop = runDealDropCycle(
-        // Dynamic import to avoid SSR issues
-        (await import('@/data/stlouis-listings')).STLOUIS_LISTINGS
-      );
-      await saveDealDrop(drop);
-    }
-    return NextResponse.json({ drop, source: 'cache' });
+    // Always generate fresh — Vercel serverless can't persist public/ writes
+    const drop = runDealDropCycle(
+      (await import('@/data/stlouis-listings')).STLOUIS_LISTINGS
+    );
+    await saveDealDrop(drop);
+    return NextResponse.json(
+      { drop, source: 'fresh' },
+      {
+        headers: {
+          'cache-control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'pragma': 'no-cache',
+        },
+      }
+    );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     console.error('[api/deal-drop]', message);

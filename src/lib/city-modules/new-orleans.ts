@@ -1,4 +1,4 @@
-import { Listing, CityConfig, CitySource, SearchQuery, SearchResult, PROPERTY_TYPE_MAP, SUMMARY_TEMPLATES, formatCents } from '../types';
+import { Listing, CityConfig, CitySource, SearchQuery, SearchResult, PropertyType, PROPERTY_TYPE_MAP, SUMMARY_TEMPLATES, formatCents } from '../types';
 
 // ============================================================
 // CITY MODULE TEMPLATE
@@ -218,7 +218,7 @@ export function searchListings(query: SearchQuery, listings: Listing[]): SearchR
       const matchedOn: string[] = [];
       let score = 50;
 
-      if (queryTypes.includes(l.propertyType)) {
+      if (queryTypes.includes(l.propertyType as PropertyType)) {
         score += 40;
         matchedOn.push(`type:${l.propertyType}`);
       }

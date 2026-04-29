@@ -1,6 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface StateInfo {
   abbr: string;
@@ -14,7 +16,7 @@ const STATES: StateInfo[] = [
     abbr: 'MO',
     name: 'Missouri',
     cities: [
-      { name: 'St. Louis', id: 'st-louis', listings: 1036, status: 'live' },
+      { name: 'St. Louis', id: 'st-louis', listings: 518, status: 'live' },
     ],
   },
   {
@@ -79,7 +81,7 @@ const STATE_PATHS: Record<string, { path: string; labelX: number; labelY: number
   },
 };
 
-function StateShape({ abbr, status }: { abbr: string; status: 'live' | 'coming-soon' }) {
+function StateShape({ abbr, status, onClick }: { abbr: string; status: 'live' | 'coming-soon'; onClick?: () => void }) {
   const state = STATE_PATHS[abbr];
   if (!state) return null;
 
@@ -91,6 +93,17 @@ function StateShape({ abbr, status }: { abbr: string; status: 'live' | 'coming-s
 
   return (
     <g>
+      {/* Invisible expanded touch target — 3x the shape size */}
+      <path
+        d={state.path}
+        fill="transparent"
+        stroke="transparent"
+        strokeWidth="0"
+        className="cursor-pointer"
+        onClick={onClick}
+        style={{ pointerEvents: 'all' }}
+      />
+      {/* Visible shape */}
       <path
         d={state.path}
         fill={fill}
@@ -99,14 +112,39 @@ function StateShape({ abbr, status }: { abbr: string; status: 'live' | 'coming-s
         className="transition-all duration-200 cursor-pointer"
         onMouseEnter={(e) => { (e.target as SVGPathElement).style.fill = hoverFill; }}
         onMouseLeave={(e) => { (e.target as SVGPathElement).style.fill = fill; }}
+        onClick={onClick}
+        style={{ pointerEvents: 'all' }}
       />
     </g>
   );
 }
 
-export function USMap() {
+export function USMap({ onSelectCity, selectedCity }: { onSelectCity?: (cityId: string) => void; selectedCity?: string }) {
+  const router = useRouter();
+  const [tooltip, setTooltip] = useState<string | null>(null);
+
+  const handleStateClick = (state: StateInfo) => {
+    const liveCity = state.cities.find(c => c.status === 'live');
+    if (liveCity) {
+      // Navigate to the city's tab
+      if (onSelectCity && liveCity.id) {
+        onSelectCity(liveCity.id);
+      } else {
+        router.push('/deals');
+      }
+    } else {
+      setTooltip(`${state.cities[0].name} — data coming soon`);
+      setTimeout(() => setTooltip(null), 2500);
+    }
+  };
+
   return (
     <div className="relative w-full max-w-3xl mx-auto" style={{ aspectRatio: '85/55' }}>
+      {tooltip && (
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-gray-900 border border-gray-700 text-gray-300 text-xs px-3 py-1.5 rounded-full z-10 whitespace-nowrap">
+          {tooltip}
+        </div>
+      )}
       <svg viewBox="0 0 85 55" className="w-full h-full" style={{ borderRadius: '12px' }}>
         {/* Background */}
         <rect x="0" y="0" width="85" height="55" fill="#0a0a0a" rx="6" />
@@ -120,6 +158,7 @@ export function USMap() {
             key={state.abbr}
             abbr={state.abbr}
             status={state.cities[0]?.status ?? 'coming-soon'}
+            onClick={() => handleStateClick(state)}
           />
         ))}
 

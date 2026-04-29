@@ -122,6 +122,53 @@ export const SCRAPER_REGISTRY: Record<string, ScraperConfig[]> = {
       rateLimitMs: 5000,
     },
   ],
+  // ──────────────────────────────────────────────────────────────
+  // MISSISSIPPI EXTENSION — Land Out of Thin Air™
+  // ──────────────────────────────────────────────────────────────
+  'mississippi': [
+    {
+      name: 'Franklin County Tax Sale',
+      url: 'https://www.franklincountyms.com/tax-collector',
+      type: 'scraper',
+      parser: 'parseFranklinCountyTaxSale',
+      rateLimitMs: 5000,
+    },
+    {
+      name: 'Jefferson County Tax Sale',
+      url: 'https://www.jeffersoncountyms.com/tax-collector',
+      type: 'scraper',
+      parser: 'parseJeffersonCountyTaxSale',
+      rateLimitMs: 5000,
+    },
+    {
+      name: 'Claiborne County Tax Sale',
+      url: 'https://www.claibornecountyms.org/tax-collector',
+      type: 'scraper',
+      parser: 'parseClaiborneCountyTaxSale',
+      rateLimitMs: 5000,
+    },
+    {
+      name: 'Copiah County Tax Sale',
+      url: 'https://www.copiahcounty.org/tax-collector',
+      type: 'scraper',
+      parser: 'parseCopiahCountyTaxSale',
+      rateLimitMs: 5000,
+    },
+    {
+      name: 'Mississippi LandWatch FSBO',
+      url: 'https://www.landwatch.com/mississippi-land-for-sale',
+      type: 'scraper',
+      parser: 'parseLandWatchMS',
+      rateLimitMs: 10000,
+    },
+    {
+      name: 'Mississippi LandSearch Unrestricted',
+      url: 'https://www.landsearch.com/unrestricted/mississippi',
+      type: 'scraper',
+      parser: 'parseLandSearchMS',
+      rateLimitMs: 10000,
+    },
+  ],
 };
 
 // ============================================================

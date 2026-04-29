@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { STLOUIS_LISTINGS } from '@/data/stlouis-listings';
 import { runDealDropCycle, saveDealDrop, generateEmailDigest, loadDealDrop } from '@/lib/proprietary/deal-drop';
+import { Resend } from 'resend';
+
+function getResend() {
+  return new Resend(process.env.RESEND_API_KEY);
+}
 
 // ============================================================
 // POST /api/deal-drop/run
@@ -85,29 +90,51 @@ async function sendEmailDigest(
 ): Promise<{ sent: number; queued: number }> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const resendApiKey = process.env.RESEND_API_KEY;
 
+  // No Supabase = use email list from env var (standalone mode)
   if (!supabaseUrl || !supabaseKey) {
-    // Standalone mode: log to console
-    console.log('╔══════════════════════════════════════╗');
-    console.log('║   AUTONOMOUS DEAL DROP — EMAIL QUEUE  ║');
-    console.log('╠══════════════════════════════════════╣');
-    console.log(`║ Cycle:   ${drop.cycleLabel.padEnd(29)}║`);
-    console.log(`║ Deals:    ${drop.selectedDeals.length} selected / ${drop.totalListingsScanned} scanned`.padEnd(49) + '║');
-    console.log(`║ AvgScore: ${drop.report.avgScore}/100`.padEnd(49) + '║');
-    console.log(`║ TopZip:   ${drop.report.topZip}`.padEnd(49) + '║');
-    console.log(`║ Operator: ${drop.report.operatorNote.substring(0, 29).padEnd(29)}║`);
-    console.log('╠══════════════════════════════════════╣');
-    console.log(`║ EMAIL WOULD SEND TO: all unlocked users`.padEnd(49) + '║');
-    console.log(`║ Subject:  ${email.subject.substring(0, 30).padEnd(30)}║`);
-    console.log('╠══════════════════════════════════════╣');
-    drop.previewDeals.forEach((d, i) => {
-      console.log(`║ #${i + 1} ${d.headline.substring(0, 35).padEnd(35)}║`);
-    });
-    console.log('╚══════════════════════════════════════╝');
-    return { sent: 0, queued: 0 };
+    const emailList = process.env.NLDS_EMAIL_LIST;
+    if (!resendApiKey || !emailList) {
+      console.log('╔══════════════════════════════════════╗');
+      console.log('║   AUTONOMOUS DEAL DROP — EMAIL QUEUE  ║');
+      console.log('╠══════════════════════════════════════╣');
+      console.log(`║ Cycle:   ${drop.cycleLabel.padEnd(29)}║`);
+      console.log(`║ Deals:    ${drop.selectedDeals.length} selected / ${drop.totalListingsScanned} scanned`.padEnd(49) + '║');
+      console.log(`║ AvgScore: ${drop.report.avgScore}/100`.padEnd(49) + '║');
+      console.log('╠══════════════════════════════════════╣');
+      console.log(`║ EMAIL NOT SENT: Resend or email list not configured`.padEnd(49) + '║');
+      console.log(`║ Subject:  ${email.subject.substring(0, 30).padEnd(30)}║`);
+      console.log('╚══════════════════════════════════════╝');
+      return { sent: 0, queued: 0 };
+    }
+
+    // Send to email list via Resend
+    const resend = getResend();
+    const recipients = emailList.split(',').map(e => e.trim()).filter(Boolean);
+
+    console.log(`[deal-drop] Sending to ${recipients.length} recipients via Resend`);
+
+    let sent = 0;
+    for (const to of recipients) {
+      try {
+        await resend.emails.send({
+          from: 'NLDS <noreply@nationallanddata.com>',
+          to,
+          subject: email.subject,
+          html: email.html,
+        });
+        sent++;
+      } catch (err) {
+        console.error(`[deal-drop] Failed to send to ${to}:`, err);
+      }
+    }
+
+    console.log(`[deal-drop] Sent ${sent}/${recipients.length} emails`);
+    return { sent, queued: recipients.length - sent };
   }
 
-  // Production: query Supabase for active users and send via email provider
+  // Production: query Supabase for active users and send via Resend
   const { createClient } = await import('@supabase/supabase-js');
   const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -123,23 +150,33 @@ async function sendEmailDigest(
     return { sent: 0, queued: 0 };
   }
 
-  // Integrate your email provider here (Resend, SendGrid, Loops, etc.)
-  // Example pattern:
-  // const resend = new Resend(process.env.RESEND_API_KEY);
-  // for (const user of users) {
-  //   await resend.emails.send({
-  //     from: 'NLDS <deals@nationallanddata.com>',
-  //     to: user.email,
-  //     subject: email.subject,
-  //     html: email.html,
-  //   });
-  //   await supabase.from('nlds_digest_log').insert({
-  //     user_id: user.id, email: user.email,
-  //     digest_type: 'weekly', status: 'sent',
-  //     digest_week_start: drop.id,
-  //   });
-  // }
+  // Send via Resend
+  const resend = getResend();
+  let sent = 0;
 
-  console.log(`[deal-drop] Would email ${users.length} users: "${email.subject}"`);
-  return { sent: 0, queued: users.length };
+  for (const user of users) {
+    try {
+      await resend.emails.send({
+        from: 'NLDS <noreply@nationallanddata.com>',
+        to: user.email,
+        subject: email.subject,
+        html: email.html,
+      });
+      sent++;
+
+      // Log to Supabase
+      await supabase.from('nlds_digest_log').insert({
+        user_id: user.id,
+        email: user.email,
+        digest_type: 'weekly',
+        status: 'sent',
+        digest_week_start: drop.id,
+      });
+    } catch (err) {
+      console.error(`[deal-drop] Failed to send to ${user.email}:`, err);
+    }
+  }
+
+  console.log(`[deal-drop] Sent ${sent}/${users.length} emails`);
+  return { sent, queued: users.length - sent };
 }

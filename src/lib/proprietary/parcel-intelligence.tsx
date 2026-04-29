@@ -115,6 +115,16 @@ const NEIGHBORHOODS: Record<string, NeighborhoodProfile> = {
   '63031': { locationScore: 72, momentumScore: 65, demandScore: 68, demandNotes: 'Florissant — stable working-class, good rental demand, strong resale', riskNotes: 'County transactions cleaner. Less fraud, clearer titles.', notes: 'North county anchor city' },
   '63033': { locationScore: 65, momentumScore: 60, demandScore: 62, demandNotes: 'Black Jack/Parkdale — affordable, decent schools, rental market active', riskNotes: 'Some properties have deferred maintenance. Code enforcement variable.', notes: 'Value-conscious buyers market' },
   '63043': { locationScore: 70, momentumScore: 62, demandScore: 65, demandNotes: 'Bridgeton — near airport, some industrial demand, suburban residential', riskNotes: 'Occasional environmental concerns near Lambert airport noise zones.', notes: 'Mixed-use suburban market' },
+
+  // ── NEW ORLEANS, LA ──────────────────────────────────────────
+  '70117': { locationScore: 45, momentumScore: 58, demandScore: 52, demandNotes: 'Lower Ninth Ward — historic resilience, community rebuilding momentum, cultural tourism', riskNotes: 'Storm-damage titles still unresolved on some parcels. Full title search essential. Some blighted lot consolidation.', notes: 'Post-Katrina recovery neighborhood, high emotional value, 105 NORA properties available' },
+  '70119': { locationScore: 82, momentumScore: 75, demandScore: 78, demandNotes: 'Treme — historic, near French Quarter, strong short-term rental demand, cultural landmark', riskNotes: 'Historic district overlay may restrict renovations. Verify with HPC before bidding.', notes: 'Premium location adjacent to French Quarter, one of NOLAs most desirable urban neighborhoods' },
+  '70122': { locationScore: 58, momentumScore: 62, demandScore: 55, demandNotes: 'Fillmore — gentrifying north of Midtown, more affordable than French Qtr, stable residential', riskNotes: 'Some parcels have deferred maintenance liens. County-level transactions cleaner than city.', notes: 'Quiet residential, good value entry into NOLA market' },
+  '70126': { locationScore: 48, momentumScore: 55, demandScore: 50, demandNotes: 'Desire Area — near University Medical Center, some commercial interest, stable working-class', riskNotes: 'Higher crime blocks exist — scout specific addresses. Some lots have code violations.', notes: 'Solid value-play neighborhood near emerging medical district' },
+  '70127': { locationScore: 50, momentumScore: 52, demandScore: 52, demandNotes: 'Little Woods — stable suburban residential, decent schools, good rental demand', riskNotes: 'County properties tend to have cleaner titles. Standard suburban risks.', notes: 'Family-friendly suburban NOLA, most affordable entry in Orleans Parish' },
+  '70128': { locationScore: 48, momentumScore: 50, demandScore: 50, demandNotes: 'Little Woods/Pines Village — quiet residential, minimal short-term rental demand', riskNotes: 'Low risk area. Standard due diligence sufficient. Flood zone verification recommended.', notes: 'Suburban NOLA, best for long-term rental strategy' },
+  '70129': { locationScore: 42, momentumScore: 45, demandScore: 40, demandNotes: 'Village De Lest/New Orleans East — more isolated, newer development, limited investor interest', riskNotes: 'Farthest from core NOLA. Verify flood zone status — parts in AE flood zone requiring flood insurance.', notes: 'Value play for buy-and-hold, longer horizon to appreciation' },
+  '70114': { locationScore: 68, momentumScore: 70, demandScore: 72, demandNotes: 'Whitney/Lower Garden District — near downtown, emerging residential, strong condo demand', riskNotes: 'Condo/HOA restrictions may apply on some parcels. Verify zoning before development.', notes: 'Best value near downtown core, gentrifying rapidly' },
 };
 
 const DEFAULT_HOOD: NeighborhoodProfile = {
@@ -139,6 +149,9 @@ const EV: Record<string, number> = {
   '63101': 35_000_00, '63102': 30_000_00, '63103': 25_000_00, '63104': 28_000_00,
   '63106': 20_000_00, '63108': 35_000_00, '63110': 28_000_00, '63112': 18_000_00,
   '63031': 14_000_00, '63033': 10_000_00, '63043': 16_000_00,
+  // New Orleans, LA
+  '70114': 28_000_00, '70117': 10_000_00, '70119': 35_000_00, '70122': 18_000_00,
+  '70126': 12_000_00, '70127': 15_000_00, '70128': 14_000_00, '70129': 12_000_00,
 };
 
 function getEV(zip: string): number { return EV[zip] ?? 12_000_00; }
@@ -354,11 +367,11 @@ function calcEarlyDiscovery(listing: Listing): number {
 // ──────────────────────────────────────────────────────────────
 
 function classify(total: number): { grade: string; emoji: string } {
-  if (total >= 85) return { grade: 'Elite Deal', emoji: 'FIRE' };
-  if (total >= 70) return { grade: 'Strong Opportunity', emoji: 'MONEYBAG' };
-  if (total >= 50) return { grade: 'Moderate', emoji: 'SCALE' };
-  if (total >= 30) return { grade: 'Risky', emoji: 'WARNING' };
-  return { grade: 'Avoid', emoji: 'SKULL' };
+  if (total >= 85) return { grade: 'Elite Deal', emoji: '🔥' };
+  if (total >= 70) return { grade: 'Strong Opportunity', emoji: '💰' };
+  if (total >= 50) return { grade: 'Moderate', emoji: '⚖️' };
+  if (total >= 30) return { grade: 'Risky', emoji: '⚠️' };
+  return { grade: 'Avoid', emoji: '💀' };
 }
 
 // ──────────────────────────────────────────────────────────────
